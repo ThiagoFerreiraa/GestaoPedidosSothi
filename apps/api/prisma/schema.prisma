@@ -1,0 +1,223 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  ATENDENTE
+  COZINHA
+  ENTREGADOR
+}
+
+enum OrderType {
+  ENCOMENDA
+  LOTE_VENDA
+}
+
+enum DeliveryType {
+  DELIVERY
+  RETIRADA
+}
+
+enum OrderStatus {
+  AGUARDANDO_ENTRADA
+  ENTRADA_CONFIRMADA
+  RECEBIDO
+  EM_PRODUCAO
+  PRONTO
+  EM_ENTREGA
+  AGUARDANDO_RETIRADA
+  SALDO_PAGO
+  ENTREGUE
+  CANCELADO
+}
+
+enum PaymentMethod {
+  PIX
+  DINHEIRO
+}
+
+enum SourceChannel {
+  WHATSAPP
+  INSTAGRAM
+  OUTRO
+}
+
+enum FinancialEntryType {
+  RECEITA
+  DESPESA
+}
+
+enum ExpenseCategory {
+  INGREDIENTES
+  EMBALAGENS
+  OUTROS
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ordersCreated    Order[]              @relation("CreatedBy")
+  ordersDelivering Order[]              @relation("DeliveryPerson")
+  statusChanges    OrderStatusHistory[]
+  batchesCreated   WeekendBatch[]
+  financialEntries FinancialEntry[]
+
+  @@map("users")
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  products  Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal  @db.Decimal(10, 2)
+  photoUrl    String?
+  seasonal    Boolean  @default(false)
+  active      Boolean  @default(true)
+  categoryId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   Category       @relation(fields: [categoryId], references: [id])
+  orderItems OrderItem[]
+  batchItems WeekendBatch[]
+
+  @@map("products")
+}
+
+model Customer {
+  id            String        @id @default(uuid())
+  name          String
+  phone         String
+  sourceChannel SourceChannel @default(WHATSAPP)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  addresses CustomerAddress[]
+  orders    Order[]
+
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id         String  @id @default(uuid())
+  address    String
+  reference  String?
+  customerId String
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orders   Order[]
+
+  @@map("customer_addresses")
+}
+
+model Order {
+  id               String         @id @default(uuid())
+  type             OrderType      @default(ENCOMENDA)
+  status           OrderStatus    @default(RECEBIDO)
+  deliveryType     DeliveryType
+  deliveryDate     DateTime
+  notes            String?
+  total            Decimal        @db.Decimal(10, 2)
+  depositRequired  Boolean        @default(false)
+  depositAmount    Decimal?       @db.Decimal(10, 2)
+  depositPaidAt    DateTime?
+  paymentMethod    PaymentMethod?
+  paidAt           DateTime?
+  customerId       String
+  addressId        String?
+  deliveryPersonId String?
+  createdById      String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  customer       Customer             @relation(fields: [customerId], references: [id])
+  address        CustomerAddress?     @relation(fields: [addressId], references: [id])
+  deliveryPerson User?                @relation("DeliveryPerson", fields: [deliveryPersonId], references: [id])
+  createdBy      User                 @relation("CreatedBy", fields: [createdById], references: [id])
+  items          OrderItem[]
+  statusHistory  OrderStatusHistory[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(10, 2)
+  notes     String?
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model OrderStatusHistory {
+  id          String      @id @default(uuid())
+  orderId     String
+  status      OrderStatus
+  changedById String
+  changedAt   DateTime    @default(now())
+
+  order     Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  changedBy User  @relation(fields: [changedById], references: [id])
+
+  @@map("order_status_history")
+}
+
+model WeekendBatch {
+  id          String   @id @default(uuid())
+  weekendDate DateTime @db.Date
+  plannedQty  Int
+  producedQty Int      @default(0)
+  soldQty     Int      @default(0)
+  productId   String
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  product   Product @relation(fields: [productId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@map("weekend_batches")
+}
+
+model FinancialEntry {
+  id            String             @id @default(uuid())
+  type          FinancialEntryType
+  amount        Decimal            @db.Decimal(10, 2)
+  category      ExpenseCategory?
+  description   String
+  referenceId   String?
+  referenceType String?
+  date          DateTime           @db.Date
+  createdById   String
+  createdAt     DateTime           @default(now())
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@map("financial_entries")
+}
