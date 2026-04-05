@@ -4,7 +4,7 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # ---- deps ----
 FROM base AS deps
 WORKDIR /app
-COPY package.json pnpm-workspace.yaml ./
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json ./apps/web/
 RUN mkdir -p packages/types && echo '{"name":"@gestao/types","version":"0.0.0"}' > packages/types/package.json
 RUN pnpm install --frozen-lockfile
