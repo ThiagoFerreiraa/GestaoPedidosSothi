@@ -16,6 +16,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
 COPY apps/api ./apps/api
 COPY packages ./packages
+# DATABASE_URL is required by prisma.config.ts at load time even for generate (no DB connection needed)
+ARG DATABASE_URL="postgresql://build:build@localhost:5432/build"
+ENV DATABASE_URL=$DATABASE_URL
 RUN pnpm --filter api exec prisma generate
 RUN pnpm --filter api build
 
